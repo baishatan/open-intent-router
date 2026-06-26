@@ -61,6 +61,69 @@ def test_openai_compatible_llm_normalizes_framework_fields() -> None:
     assert normalized["context"]["candidate_agent_ids"] == ["summarizer"]
 
 
+def test_openai_compatible_llm_normalizes_incomplete_plan() -> None:
+    payload = _multi_agent_payload()
+
+    normalized = _normalize_route_response(
+        {
+            "decision": {
+                "status": "ok",
+                "action": "show_plan",
+                "target_agent_id": "summarizer",
+                "confidence": 0.8,
+                "reason": "Multi-step request.",
+                "message": "Show plan.",
+            },
+            "context": {"relation": "multi_task"},
+            "plan": {
+                "steps": [
+                    {
+                        "agent_id": "summarizer",
+                        "description": "Summarize the text.",
+                    },
+                    {
+                        "agent_id": "task_creator",
+                        "description": "Create a task.",
+                        "depends_on": ["step_1"],
+                    },
+                ]
+            },
+        },
+        payload,
+    )
+
+    assert isinstance(normalized, dict)
+    assert normalized["decision"]["target_agent_id"] is None
+    assert normalized["plan"]["plan_id"].startswith("plan_")
+    assert normalized["plan"]["session_id"] == "s1"
+    assert normalized["plan"]["current_step_id"] == "step_1"
+    assert normalized["plan"]["steps"][0]["status"] == "pending"
+
+
+def test_openai_compatible_llm_builds_fallback_plan_for_show_plan_without_steps() -> None:
+    payload = _multi_agent_payload()
+
+    normalized = _normalize_route_response(
+        {
+            "decision": {
+                "status": "ok",
+                "action": "show_plan",
+                "target_agent_id": None,
+                "confidence": 0.8,
+                "reason": "Multi-step request.",
+                "message": "Show plan.",
+            },
+            "context": {"relation": "multi_task"},
+            "plan": None,
+        },
+        payload,
+    )
+
+    assert isinstance(normalized, dict)
+    assert normalized["plan"]["steps"][0]["agent_id"] == "summarizer"
+    assert normalized["plan"]["steps"][1]["agent_id"] == "task_creator"
+
+
 def _payload() -> LLMRouteInput:
     from app.schemas.agents import CandidateAgent
 
@@ -76,4 +139,27 @@ def _payload() -> LLMRouteInput:
             CandidateAgent(agent_id="summarizer", name="Summarizer", description="Summarize text")
         ],
         context=RouteContext(candidate_agent_ids=["summarizer"]),
+    )
+
+
+def _multi_agent_payload() -> LLMRouteInput:
+    from app.schemas.agents import CandidateAgent
+
+    return LLMRouteInput(
+        request=RouteRequest.model_validate(
+            {
+                "session_id": "s1",
+                "user": {"id": "u1", "roles": ["operator"]},
+                "input": {"text": "first summarize this text, then create a task"},
+            }
+        ),
+        candidates=[
+            CandidateAgent(agent_id="summarizer", name="Summarizer", description="Summarize text"),
+            CandidateAgent(
+                agent_id="task_creator",
+                name="Task Creator",
+                description="Create a task from instructions",
+            ),
+        ],
+        context=RouteContext(candidate_agent_ids=["summarizer", "task_creator"]),
     )

@@ -51,6 +51,38 @@ def summarizer_agent() -> AgentDefinition:
 
 
 @pytest.fixture
+def task_creator_agent() -> AgentDefinition:
+    return AgentDefinition.model_validate(
+        {
+            "agent_id": "task_creator",
+            "name": "Task Creator",
+            "description": "Create a task or to-do item from user instructions.",
+            "type": "mock",
+            "capabilities": ["create_task"],
+            "trigger": {
+                "keywords": ["task", "todo"],
+                "positive_examples": ["create a task from this summary"],
+            },
+            "access_policy": {"allow_roles": ["operator"], "allow_tenants": ["*"]},
+            "required_inputs": ["title"],
+            "input_schema": {
+                "type": "object",
+                "required": ["title"],
+                "properties": {"title": {"type": "string"}},
+            },
+            "output_schema": {
+                "type": "object",
+                "properties": {"task_id": {"type": "string"}, "title": {"type": "string"}},
+            },
+            "invocation": {
+                "type": "mock",
+                "config": {"response": {"task_id": "task_mock_001", "title": "Mock task"}},
+            },
+        }
+    )
+
+
+@pytest.fixture
 def repositories():
     return {
         "registry": MemoryAgentDefinitionRepository(),

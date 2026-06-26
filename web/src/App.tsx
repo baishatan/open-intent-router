@@ -1357,6 +1357,9 @@ function formatError(error: unknown): string {
     return `${error.status}: ${JSON.stringify(error.detail)}`;
   }
   if (error instanceof Error) {
+    if (error.message === "Failed to fetch") {
+      return "无法连接后端服务，或请求被浏览器/CORS/服务崩溃中断。请确认后端正在运行并查看后端日志。";
+    }
     return error.message;
   }
   return "未知错误";

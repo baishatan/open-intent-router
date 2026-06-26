@@ -8,6 +8,7 @@ from app.core.config import Settings
 from app.core.errors import LLMError
 from app.prompts.router_prompt import RouterPromptTemplate
 from app.schemas.routing import LLMRouteInput, RouteResponse
+from app.services.plan_builder import build_ordered_plan_from_text
 
 
 class OpenAICompatibleLLMClient:
@@ -87,4 +88,50 @@ def _normalize_route_response(parsed: object, payload: LLMRouteInput) -> object:
             "candidate_agent_ids": candidate_ids,
         }
 
+    decision = normalized.get("decision")
+    if isinstance(decision, dict) and decision.get("action") == "show_plan":
+        normalized["plan"] = _normalize_plan(normalized.get("plan"), payload)
+        if not _has_plan_steps(normalized["plan"]):
+            fallback_plan = build_ordered_plan_from_text(
+                text=payload.request.input.text,
+                session_id=payload.request.session_id,
+                candidates=payload.candidates,
+            )
+            if fallback_plan is not None:
+                normalized["plan"] = fallback_plan.model_dump(mode="json")
+        decision["target_agent_id"] = None
+
     return normalized
+
+
+def _normalize_plan(plan: object, payload: LLMRouteInput) -> object:
+    if not isinstance(plan, dict):
+        return plan
+    normalized = dict(plan)
+    normalized["plan_id"] = normalized.get("plan_id") or f"plan_{uuid4().hex}"
+    normalized["session_id"] = normalized.get("session_id") or payload.request.session_id
+    normalized["status"] = normalized.get("status") or "pending"
+    steps = normalized.get("steps")
+    if isinstance(steps, list):
+        normalized_steps = []
+        for index, raw_step in enumerate(steps, start=1):
+            if not isinstance(raw_step, dict):
+                normalized_steps.append(raw_step)
+                continue
+            step = dict(raw_step)
+            step["step_id"] = step.get("step_id") or f"step_{index}"
+            step["description"] = step.get("description") or step["step_id"]
+            step["status"] = step.get("status") or "pending"
+            step["depends_on"] = step.get("depends_on") or []
+            step["artifact_refs"] = step.get("artifact_refs") or []
+            normalized_steps.append(step)
+        normalized["steps"] = normalized_steps
+        if normalized_steps and not normalized.get("current_step_id"):
+            first_step = normalized_steps[0]
+            if isinstance(first_step, dict):
+                normalized["current_step_id"] = first_step.get("step_id")
+    return normalized
+
+
+def _has_plan_steps(plan: object) -> bool:
+    return isinstance(plan, dict) and isinstance(plan.get("steps"), list) and len(plan["steps"]) > 0

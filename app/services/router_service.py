@@ -17,6 +17,8 @@ from app.schemas.routing import (
     RouteResponse,
 )
 from app.services.context_service import ContextService
+from app.services.plan_builder import build_ordered_plan_from_text
+from app.services.plan_service import PlanService
 from app.services.registry_service import AgentRegistryService
 
 
@@ -31,6 +33,7 @@ class RouterService:
         result_repository=None,
         route_log_repository=None,
         evidence_provider=None,
+        plan_service: PlanService | None = None,
     ) -> None:
         self.settings = settings
         self.registry = registry
@@ -40,6 +43,7 @@ class RouterService:
         self.result_repository = result_repository
         self.route_log_repository = route_log_repository
         self.evidence_provider = evidence_provider
+        self.plan_service = plan_service
 
     async def route(self, request: RouteRequest) -> RouteResponse:
         request_id = request.request_id or f"req_{uuid4().hex}"
@@ -84,6 +88,7 @@ class RouterService:
         output = await self.llm_client.route(
             LLMRouteInput(request=request, candidates=candidates, context=base_context)
         )
+        output = self._ensure_plan_for_multi_task(output, request, candidates)
         output = output.model_copy(update={"request_id": request_id})
         output = await self._post_validate(output, request)
         response = await self._clarify_or_attach_invocation(output, request)
@@ -215,6 +220,8 @@ class RouterService:
         return response
 
     async def _after_route(self, request: RouteRequest, response: RouteResponse) -> None:
+        if self.plan_service and response.plan is not None:
+            await self.plan_service.save_plan(response.plan)
         if self.chat_history_service:
             await self.chat_history_service.record_user_input(
                 session_id=request.session_id,
@@ -243,6 +250,37 @@ class RouterService:
                     validation_status="ok",
                 )
             )
+
+    def _ensure_plan_for_multi_task(
+        self,
+        output: RouteResponse,
+        request: RouteRequest,
+        candidates,
+    ) -> RouteResponse:
+        if output.plan is not None or output.context.relation != "multi_task":
+            return output
+        plan = build_ordered_plan_from_text(
+            text=request.input.text,
+            session_id=request.session_id,
+            candidates=candidates,
+        )
+        if plan is None:
+            return output
+        return output.model_copy(
+            update={
+                "decision": RouteDecision(
+                    status=output.decision.status,
+                    action="show_plan",
+                    target_agent_id=None,
+                    confidence=output.decision.confidence,
+                    reason=output.decision.reason or "Detected an ordered multi-agent task.",
+                    message=output.decision.message or "已生成多步骤执行计划。",
+                ),
+                "context": output.context.model_copy(update={"relation": "multi_task"}),
+                "plan": plan,
+                "invocation": None,
+            }
+        )
 
 
 def _missing_required_inputs(agent: AgentDefinition, invocation_input: dict) -> list[str]:

@@ -79,6 +79,7 @@ def get_router_service() -> RouterService:
         result_repository=repositories["results"],
         route_log_repository=repositories["route_logs"],
         evidence_provider=build_evidence_provider(settings),
+        plan_service=PlanService(repositories["plans"]),
     )
 
 

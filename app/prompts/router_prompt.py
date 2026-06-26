@@ -82,6 +82,27 @@ def route_response_schema_hint(candidate_agent_ids: list[str]) -> dict:
             "evidence": [],
             "metadata": {},
         },
-        "plan": None,
+        "plan": {
+            "plan_id": "string|null; required when action=show_plan, may be omitted and server will fill",
+            "session_id": "string|null",
+            "status": "pending|running|blocked|completed|failed|cancelled",
+            "current_step_id": "string|null",
+            "steps": [
+                {
+                    "step_id": "string",
+                    "agent_id": f"one of {candidate_agent_ids}",
+                    "description": "string",
+                    "status": "pending|running|blocked|completed|failed|cancelled",
+                    "depends_on": ["previous_step_id"],
+                    "artifact_refs": [],
+                }
+            ],
+        },
         "invocation": None,
+        "rules": [
+            "Single-agent requests should use open_agent or continue_agent and plan must be null.",
+            "Multi-intent or ordered requests such as 'first summarize, then create a task' must use action=show_plan, context.relation=multi_task, target_agent_id=null, invocation=null, and include plan.steps.",
+            "Every plan step agent_id must be selected from candidate_agent_ids.",
+            "Use dependency edges in depends_on when a later step needs the previous step output.",
+        ],
     }

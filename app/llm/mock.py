@@ -1,6 +1,7 @@
 from uuid import uuid4
 
 from app.schemas.routing import LLMRouteInput, RouteContext, RouteDecision, RouteResponse
+from app.services.plan_builder import build_ordered_plan_from_text
 
 
 class MockLLMClient:
@@ -8,6 +9,37 @@ class MockLLMClient:
         text = payload.request.input.text.lower()
         candidates = payload.candidates
         candidate_ids = [agent.agent_id for agent in candidates]
+        plan = build_ordered_plan_from_text(
+            text=payload.request.input.text,
+            session_id=payload.request.session_id,
+            candidates=candidates,
+        )
+
+        if plan is not None:
+            return RouteResponse(
+                request_id=payload.request.request_id or f"req_{uuid4().hex}",
+                session_id=payload.request.session_id,
+                decision=RouteDecision(
+                    status="ok",
+                    action="show_plan",
+                    target_agent_id=None,
+                    confidence=0.6,
+                    reason="Mock router detected an ordered multi-agent task.",
+                    message="已生成多步骤执行计划。",
+                ),
+                context=RouteContext(
+                    relation="multi_task",
+                    current_agent_id=(
+                        payload.request.current_agent.agent_id if payload.request.current_agent else None
+                    ),
+                    candidate_agent_ids=candidate_ids,
+                    artifact_refs=[],
+                    intent_hint=payload.context.intent_hint,
+                    evidence=payload.context.evidence,
+                ),
+                plan=plan,
+                invocation=None,
+            )
 
         selected = None
         for agent in candidates:
