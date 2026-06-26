@@ -1,0 +1,70 @@
+from dataclasses import dataclass
+from typing import Any
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+
+
+@dataclass
+class ErrorPayload:
+    code: str
+    message: str
+    details: dict[str, Any] | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {"code": self.code, "message": self.message}
+        if self.details:
+            payload["details"] = self.details
+        return payload
+
+
+class AppError(Exception):
+    status_code = 400
+    code = "app_error"
+
+    def __init__(self, message: str, *, details: dict[str, Any] | None = None) -> None:
+        super().__init__(message)
+        self.message = message
+        self.details = details
+
+
+class AuthenticationError(AppError):
+    status_code = 401
+    code = "authentication_error"
+
+
+class RegistryError(AppError):
+    code = "registry_error"
+
+
+class RegistryUnavailableError(RegistryError):
+    status_code = 503
+    code = "registry_unavailable"
+
+
+class RoutingError(AppError):
+    code = "routing_error"
+
+
+class LLMError(AppError):
+    status_code = 502
+    code = "llm_error"
+
+
+class InvocationError(AppError):
+    status_code = 502
+    code = "invocation_error"
+
+
+class StorageError(AppError):
+    status_code = 503
+    code = "storage_error"
+
+
+def register_error_handlers(app: FastAPI) -> None:
+    @app.exception_handler(AppError)
+    async def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": ErrorPayload(exc.code, exc.message, exc.details).to_dict()},
+        )

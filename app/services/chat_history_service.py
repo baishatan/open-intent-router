@@ -1,0 +1,52 @@
+from uuid import uuid4
+
+from app.schemas.common import MessageSource
+from app.schemas.sessions import ChatMessage
+
+
+class ChatHistoryService:
+    def __init__(self, repository, *, host_limit: int, agent_limit: int) -> None:
+        self.repository = repository
+        self.host_limit = host_limit
+        self.agent_limit = agent_limit
+
+    async def record(self, message: ChatMessage) -> ChatMessage:
+        return await self.repository.add(message)
+
+    async def record_user_input(
+        self,
+        *,
+        session_id: str,
+        user_id: str,
+        content: str,
+        source: MessageSource = "host_chat",
+        request_id: str | None = None,
+        event_id: str | None = None,
+        agent_id: str | None = None,
+        agent_session_id: str | None = None,
+    ) -> ChatMessage:
+        return await self.record(
+            ChatMessage(
+                message_id=f"msg_{uuid4().hex}",
+                session_id=session_id,
+                user_id=user_id,
+                source=source,
+                role="user",
+                content=content,
+                request_id=request_id,
+                event_id=event_id,
+                agent_id=agent_id,
+                agent_session_id=agent_session_id,
+            )
+        )
+
+    async def get_host_history(self, session_id: str) -> list[ChatMessage]:
+        return await self.repository.list_by_session(session_id, source="host_chat", limit=self.host_limit)
+
+    async def get_agent_history(self, session_id: str, agent_id: str) -> list[ChatMessage]:
+        return await self.repository.list_by_session(
+            session_id,
+            source="agent_chat",
+            agent_id=agent_id,
+            limit=self.agent_limit,
+        )

@@ -1,0 +1,158 @@
+agents:
+  - agent_id: summarizer
+    name: Text Summarizer
+    description: Summarize long text into concise notes.
+    version: 1.0.0
+    enabled: true
+    type: mock
+    domain: productivity
+    capabilities:
+      - summarize
+      - extract_key_points
+    tags:
+      - text
+      - summary
+    trigger:
+      keywords:
+        - summarize
+        - summary
+      positive_examples:
+        - summarize this text
+        - make this shorter
+      negative_examples:
+        - translate this text
+    access_policy:
+      allow_roles:
+        - operator
+      allow_groups:
+        - default
+      allow_tenants:
+        - "*"
+    required_inputs:
+      - text
+    optional_inputs:
+      - tone
+    input_schema:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+    output_schema:
+      type: object
+      properties:
+        summary:
+          type: string
+    invocation:
+      type: mock
+      config:
+        response:
+          summary: This is a mock summary.
+    ui_handoff:
+      mode: none
+    metadata:
+      owner: examples
+
+  - agent_id: task_creator
+    name: Task Creator
+    description: Create a task or to-do item from user instructions.
+    version: 1.0.0
+    enabled: true
+    type: mock
+    domain: productivity
+    capabilities:
+      - create_task
+    tags:
+      - task
+      - todo
+    trigger:
+      keywords:
+        - task
+        - todo
+      positive_examples:
+        - create a task from this summary
+      negative_examples:
+        - summarize this text
+    access_policy:
+      allow_roles:
+        - operator
+      allow_groups:
+        - default
+      allow_tenants:
+        - "*"
+    required_inputs:
+      - title
+    optional_inputs:
+      - due_date
+      - assignee
+    input_schema:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+        due_date:
+          type: string
+    output_schema:
+      type: object
+      properties:
+        task_id:
+          type: string
+        title:
+          type: string
+    invocation:
+      type: mock
+      config:
+        response:
+          task_id: task_mock_001
+          title: Mock task
+    ui_handoff:
+      mode: none
+    metadata:
+      owner: examples
+
+  - agent_id: handoff_dashboard
+    name: Dashboard Handoff
+    description: Ask the host application to open a dashboard page.
+    version: 1.0.0
+    enabled: true
+    type: ui_handoff
+    domain: host
+    capabilities:
+      - open_dashboard
+    tags:
+      - ui
+      - handoff
+    trigger:
+      keywords:
+        - dashboard
+        - open dashboard
+      positive_examples:
+        - open the dashboard
+      negative_examples: []
+    access_policy:
+      allow_roles:
+        - operator
+      allow_groups:
+        - default
+      allow_tenants:
+        - "*"
+    input_schema:
+      type: object
+      properties: {}
+    output_schema:
+      type: object
+      properties:
+        route:
+          type: string
+    invocation:
+      type: ui_handoff
+      config: {}
+    ui_handoff:
+      mode: host_route
+      route: /dashboard
+      params: {}
+    metadata:
+      owner: examples

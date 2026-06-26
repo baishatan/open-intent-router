@@ -1,0 +1,15 @@
+fixed_questions:
+  - question: summarize this text
+    match_type: exact
+    strength: weak
+    intent_hint: summarize_text
+    candidate_agent_ids:
+      - summarizer
+
+  - question: open the dashboard
+    match_type: exact
+    strength: strong
+    route_override:
+      action: open_agent
+      target_agent_id: handoff_dashboard
+      message: Opening the dashboard.

@@ -1,0 +1,45 @@
+from pydantic import Field
+
+from app.schemas.common import (
+    AgentRunStatus,
+    ArtifactRef,
+    ErrorDetail,
+    JsonDict,
+    StrictBaseModel,
+    UserContext,
+)
+
+
+class AgentInvocation(StrictBaseModel):
+    run_id: str
+    request_id: str | None = None
+    session_id: str
+    agent_id: str
+    user: UserContext
+    input: JsonDict = Field(default_factory=dict)
+    context: JsonDict = Field(default_factory=dict)
+
+
+class AgentInvocationResult(StrictBaseModel):
+    run_id: str
+    agent_id: str
+    status: AgentRunStatus
+    message: str = ""
+    output: JsonDict | None = None
+    artifact_refs: list[ArtifactRef] = Field(default_factory=list)
+    usage: JsonDict = Field(default_factory=dict)
+    error: ErrorDetail | None = None
+
+
+class InvokeRequest(StrictBaseModel):
+    request_id: str | None = None
+    session_id: str
+    agent_id: str
+    user: UserContext
+    input: JsonDict = Field(default_factory=dict)
+    context: JsonDict = Field(default_factory=dict)
+
+
+class RouteAndInvokeResponse(StrictBaseModel):
+    route: JsonDict
+    result: AgentInvocationResult | None = None
