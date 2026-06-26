@@ -29,6 +29,13 @@ http://127.0.0.1:5173
 ```
 
 Vite 开发服务器会把 `/api`、`/health`、`/ready` 代理到 `http://127.0.0.1:8000`。
+如果 8000 端口已被其他本地服务占用，可以把后端启动到其他端口，并通过 `VITE_API_PROXY_TARGET` 指定代理目标：
+
+```bash
+uvicorn app.main:app --reload --port 8010
+cd /Users/lijingtong/project/open_intent_router/web
+VITE_API_PROXY_TARGET=http://127.0.0.1:8010 npm run dev -- --port 5175
+```
 
 ## 主要功能
 
