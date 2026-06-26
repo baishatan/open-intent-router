@@ -14,6 +14,12 @@ LLMProvider = Literal["mock", "openai_compatible"]
 class Settings(BaseSettings):
     app_env: str = "local"
     log_level: str = "INFO"
+    cors_allow_origins: str = (
+        "http://127.0.0.1:5173,"
+        "http://127.0.0.1:5174,"
+        "http://localhost:5173,"
+        "http://localhost:5174"
+    )
 
     database_url: str = "sqlite+aiosqlite:///./data/open-intent-router.db"
     storage_backend: StorageBackend = "database"
@@ -27,6 +33,7 @@ class Settings(BaseSettings):
     router_llm_base_url: str | None = None
     router_llm_api_key: str | None = Field(default=None)
     router_llm_timeout_seconds: float = 20.0
+    router_prompt_file: str | None = "./config/prompts/router.zh.yaml"
 
     route_mode: RouteMode = "route_and_invoke"
     admin_api_token: str | None = Field(default=None)

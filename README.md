@@ -32,12 +32,12 @@
 - OpenAI-compatible LLM Client 和 Mock LLM。
 - 基础 Invoker：`mock`、`http`、`local_function`、`ui_handoff`。
 - 会话消息、Agent 事件、Agent Run / Result、Plan 和 Route Log。
-- Admin Token 保护的注册表变更接口。
+- Admin Token 保护的注册表变更接口；local loopback 可选择免 token 开发。
 - 可选 Evidence Provider 插件，以及文件型固定问题命中插件。
+- 本地可视化测试 UI，用于配置 Agent/Intent 和对话调试。
 
 暂未纳入 MVP 的能力：
 
-- 前端 UI。
 - 飞书同步注册表。
 - Coze / Dify / FastGPT / LangGraph 内置适配器。
 - Milvus 索引和完整知识文件管理。
@@ -60,6 +60,7 @@ uvicorn app.main:app --reload
 - `REGISTRY_BACKEND=file`
 - `REGISTRY_FILE_PATH=./config/agents.example.yaml`
 - `ROUTER_LLM_PROVIDER=mock`
+- `ROUTER_PROMPT_FILE=./config/prompts/router.zh.yaml`
 - `DATABASE_URL=sqlite+aiosqlite:///./data/open-intent-router.db`
 
 启动后可访问：
@@ -67,6 +68,30 @@ uvicorn app.main:app --reload
 - 健康检查：`GET /health`
 - 就绪检查：`GET /ready`
 - API 文档：`GET /docs`
+
+## 可视化测试 UI
+
+本地测试 UI 位于 [web](/Users/lijingtong/project/open_intent_router/web)，用于配置 Agent/Intent、切换 route-only / route-and-invoke 测试路径，并通过对话框查看 RouteResponse、InvocationResult、Evidence、UI Handoff 和 Plan。
+
+启动前端：
+
+```bash
+cd /Users/lijingtong/project/open_intent_router/web
+npm install
+npm run dev
+```
+
+默认访问：
+
+```text
+http://127.0.0.1:5173
+```
+
+如果后端不是 `http://127.0.0.1:8000`，可设置：
+
+```bash
+VITE_API_BASE_URL=http://127.0.0.1:8010 npm run dev
+```
 
 ## 核心 API
 
@@ -100,6 +125,8 @@ Agent 查询：
 - `DELETE /api/v1/admin/agents/{agent_id}`
 - `POST /api/v1/admin/registry/reload`
 
+本地开发时，如果 `APP_ENV=local` 且没有配置 `ADMIN_API_TOKEN`，Admin 写操作仅允许来自本机 loopback 访问。非 local 环境必须配置 `ADMIN_API_TOKEN`；如果 local 环境配置了 token，也需要在请求或 UI 中填写 token。
+
 ## 路由请求示例
 
 ```json
@@ -120,11 +147,56 @@ Agent 查询：
 
 在默认 Mock 配置下，路由器会基于本地 `config/agents.example.yaml` 中的 Agent 定义返回路由决策。使用 `route-and-invoke` 时，如果目标 Agent 支持后端调用，会继续返回调用结果。
 
+## Prompt 配置
+
+OpenAI-compatible 路由器的 Prompt 已从 LLM Client 中拆出，默认配置文件位于：
+
+- [config/prompts/router.zh.yaml](/Users/lijingtong/project/open_intent_router/config/prompts/router.zh.yaml)
+
+可通过环境变量指定其他 Prompt 文件：
+
+```bash
+ROUTER_PROMPT_FILE=./config/prompts/router.zh.yaml
+```
+
+Prompt 模板支持两个字段：
+
+- `system_prompt`：系统提示词。
+- `user_template`：用户消息模板，使用 `{payload_json}` 占位符注入结构化路由输入。
+
+如果配置文件不存在，系统会回退到 [app/prompts/router_prompt.py](/Users/lijingtong/project/open_intent_router/app/prompts/router_prompt.py) 中的默认 Prompt。
+
+## DeepSeek 配置
+
+DeepSeek 通过 OpenAI-compatible Provider 接入，不需要 DeepSeek 专用硬编码依赖。可复制示例：
+
+```bash
+cp .env.deepseek.example .env
+```
+
+关键字段：
+
+```dotenv
+ROUTER_LLM_PROVIDER=openai_compatible
+ROUTER_LLM_MODEL=deepseek-chat
+ROUTER_LLM_BASE_URL=https://api.deepseek.com
+ROUTER_LLM_API_KEY=replace-with-real-key
+```
+
+原项目 DeepSeek 字段映射：
+
+| 原项目字段 | open-intent-router 字段 |
+| --- | --- |
+| `DEEPSEEK_API_KEY` | `ROUTER_LLM_API_KEY` |
+| `DEEPSEEK_MODEL` | `ROUTER_LLM_MODEL` |
+| `DEEPSEEK_BASE_URL` | `ROUTER_LLM_BASE_URL` |
+
 ## 文档
 
 - 需求分析：[docs/开源意图识别项目需求分析文档.md](/Users/lijingtong/project/open_intent_router/docs/开源意图识别项目需求分析文档.md)
 - Agent 定义：[docs/agent-definition.md](/Users/lijingtong/project/open_intent_router/docs/agent-definition.md)
 - API 概览：[docs/api.md](/Users/lijingtong/project/open_intent_router/docs/api.md)
+- 可视化测试 UI：[docs/visual-test-ui.md](/Users/lijingtong/project/open_intent_router/docs/visual-test-ui.md)
 - Evidence Provider：[docs/evidence-provider.md](/Users/lijingtong/project/open_intent_router/docs/evidence-provider.md)
 - OAC 迁移说明：[docs/oac-migration.md](/Users/lijingtong/project/open_intent_router/docs/oac-migration.md)
 

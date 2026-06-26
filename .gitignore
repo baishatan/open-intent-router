@@ -4,5 +4,11 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .env
+!.env.example
+!.env.deepseek.example
 data/
 .data/
+web/node_modules/
+web/dist/
+web/.vite/
+web/coverage/

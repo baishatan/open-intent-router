@@ -58,10 +58,12 @@ MVP 支持的 Invoker：
 
 ## Agent 管理
 
-管理接口需要传入 Admin Token：
+管理接口通常需要传入 Admin Token：
 
 - Header：`X-Admin-Token: <token>`
 - 或：`Authorization: Bearer <token>`
+
+本地开发例外：当 `APP_ENV=local` 且未配置 `ADMIN_API_TOKEN` 时，后端只允许来自本机 loopback 的 Admin 写操作。非 local 环境必须配置 `ADMIN_API_TOKEN`；如果 local 环境也配置了 token，则仍然需要传入 token。
 
 接口列表：
 
